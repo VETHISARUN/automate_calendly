@@ -3,3 +3,4 @@ uvicorn
 selenium
 pydantic[email]
 chromedriver-autoinstaller
+webdriver_manager
