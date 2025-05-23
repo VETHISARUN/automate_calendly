@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxrandr2 \
     xdg-utils \
+    jq \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
@@ -31,14 +32,16 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearm
     apt-get update && apt-get install -y google-chrome-stable && \
     rm -rf /var/lib/apt/lists/*
 
-# Install matching ChromeDriver version
-RUN CHROME_MAJOR_VERSION=$(google-chrome --version | grep -oP '\d+' | head -1) && \
-    echo "Installed Chrome major version: $CHROME_MAJOR_VERSION" && \
-    CHROMEDRIVER_VERSION=$(curl -fsSL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}") && \
-    echo "Matching ChromeDriver version: $CHROMEDRIVER_VERSION" && \
-    wget -q -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" && \
-    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
-    rm /tmp/chromedriver.zip && \
+# Install matching ChromeDriver version (fixed for Chrome 115+)
+RUN CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+') && \
+    echo "Installed Chrome version: $CHROME_VERSION" && \
+    # For Chrome 115+, use the new Chrome for Testing API
+    CHROMEDRIVER_VERSION=$(curl -fsSL "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE" | tr -d '\n') && \
+    echo "Using ChromeDriver version: $CHROMEDRIVER_VERSION" && \
+    wget -q -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip" && \
+    unzip /tmp/chromedriver.zip -d /tmp/ && \
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ && \
+    rm -rf /tmp/chromedriver* && \
     chmod +x /usr/local/bin/chromedriver
 
 # Set working directory
