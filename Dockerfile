@@ -23,6 +23,9 @@ RUN apt-get update && apt-get install -y \
     libxrandr2 \
     xdg-utils \
     jq \
+    xvfb \
+    x11vnc \
+    fluxbox \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
@@ -44,6 +47,13 @@ RUN CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+') &&
     rm -rf /tmp/chromedriver* && \
     chmod +x /usr/local/bin/chromedriver
 
+# Create a startup script for virtual display
+RUN echo '#!/bin/bash\n\
+export DISPLAY=:99\n\
+Xvfb :99 -screen 0 1920x1080x24 &\n\
+exec "$@"' > /usr/local/bin/start-with-xvfb.sh && \
+    chmod +x /usr/local/bin/start-with-xvfb.sh
+
 # Set working directory
 WORKDIR /app
 
@@ -56,6 +66,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Set environment variables
+ENV DISPLAY=:99
+ENV PYTHONUNBUFFERED=1
+
 # Expose port
 EXPOSE 8000
 
@@ -63,5 +77,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD curl -f http://localhost:8000/health || exit 1
 
-# Command to run the FastAPI app with Chrome flags to avoid sandbox issues
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Command to run the FastAPI app with virtual display
+CMD ["/usr/local/bin/start-with-xvfb.sh", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
