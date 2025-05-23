@@ -1,4 +1,4 @@
-# Use official Python image
+# Use official Python slim image
 FROM python:3.11-slim
 
 # Install system dependencies for Chrome & Selenium
@@ -25,24 +25,22 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Chrome (pinned version for stability)
+# Install latest stable Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
     apt-get update && \
-    apt-get install -y google-chrome-stable=114.0.5735.198-1 && \
+    apt-get install -y google-chrome-stable && \
     rm -rf /var/lib/apt/lists/*
 
-# Install ChromeDriver (pinned version matching Chrome)
+# Install matching ChromeDriver
 RUN CHROME_MAJOR_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d '.' -f 1) && \
     echo "Detected Chrome major version: $CHROME_MAJOR_VERSION" && \
-    { \
-      CHROMEDRIVER_VERSION=$(curl -fsS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_MAJOR_VERSION" || \
-      curl -fsS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$(($CHROME_MAJOR_VERSION-1))" || \
-      echo "114.0.5735.90"); \
-    } && \
+    CHROMEDRIVER_VERSION=$(curl -fsS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_MAJOR_VERSION" || echo "") && \
+    if [ -z "$CHROMEDRIVER_VERSION" ]; then \
+        CHROMEDRIVER_VERSION=$(curl -fsS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE"); \
+    fi && \
     echo "Using ChromeDriver version: $CHROMEDRIVER_VERSION" && \
-    wget --no-verbose -O /tmp/chromedriver.zip \
-    "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" && \
+    wget --no-verbose -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" && \
     unzip -o /tmp/chromedriver.zip -d /usr/local/bin/ && \
     rm /tmp/chromedriver.zip && \
     chmod +x /usr/local/bin/chromedriver
