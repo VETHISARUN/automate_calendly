@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import List
 from calendly_bot import book_slot
 
@@ -7,25 +7,25 @@ app = FastAPI()
 
 class BookingRequest(BaseModel):
     name: str
-    email: EmailStr
-    guests: List[EmailStr] = []
-    note: str = ""
+    email: str
+    guests: List[str]
+    note: str
     month: str
     day: str
-    time: str
+    time_str: str
 
 @app.post("/book")
-def book_appointment(payload: BookingRequest):
+def book(request: BookingRequest):
     try:
         book_slot(
-            name=payload.name,
-            email=payload.email,
-            guests=payload.guests,
-            note=payload.note,
-            month=payload.month,
-            day=payload.day,
-            time_str=payload.time
+            name=request.name,
+            email=request.email,
+            guests=request.guests,
+            note=request.note,
+            month=request.month,
+            day=request.day,
+            time_str=request.time_str
         )
-        return {"status": "success", "message": "Booking attempted"}
+        return {"status": "success", "message": "Booking attempt completed."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -2,34 +2,25 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.keys import Keys
 import time
 
 def book_slot(name, email, guests, note, month, day, time_str):
-    # Configure Chrome options for headless use on Render
-    options = Options()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-
-    # Initialize driver using webdriver-manager
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver = webdriver.Chrome()
     wait = WebDriverWait(driver, 10)
     driver.get("https://calendly.com/johngvm20/30min")
 
     try:
-        # Handle cookies popup
+        # Close cookie popup
         try:
             close_cookie_btn = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "onetrust-close-btn-handler")))
             close_cookie_btn.click()
         except:
             pass
 
-        # Navigate to desired month
+        # Navigate to target month
         while True:
             current_month_el = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="title"]')))
             if current_month_el.text.strip() == month:
@@ -37,7 +28,7 @@ def book_slot(name, email, guests, note, month, day, time_str):
             driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Go to next month"]').click()
             time.sleep(1)
 
-        # Click on desired day
+        # Click target day
         buttons = driver.find_elements(By.CSS_SELECTOR, "table[aria-label='Select a Day'] button")
         for btn in buttons:
             try:
@@ -50,7 +41,7 @@ def book_slot(name, email, guests, note, month, day, time_str):
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-component="spotpicker-times-list"]')))
         time.sleep(1)
 
-        # Click time
+        # Scroll and click time
         def scroll_and_click_time():
             scrollable_div = driver.find_element(By.CSS_SELECTOR, 'div[data-component="spot-list"]')
             for _ in range(20):
@@ -72,11 +63,11 @@ def book_slot(name, email, guests, note, month, day, time_str):
         if not scroll_and_click_time():
             raise Exception("Time slot not found")
 
-        # Next step
+        # Click Next
         next_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label^="Next"]')))
         next_btn.click()
 
-        # Fill name and email
+        # Fill form
         wait.until(EC.presence_of_element_located((By.ID, "full_name_input"))).send_keys(name)
         driver.find_element(By.ID, "email_input").send_keys(email)
 
@@ -85,7 +76,8 @@ def book_slot(name, email, guests, note, month, day, time_str):
             driver.find_element(By.XPATH, '//button[span[text()="Add Guests"]]').click()
             guest_input = wait.until(EC.presence_of_element_located((By.ID, "invitee_guest_input")))
             for g in guests:
-                guest_input.send_keys(g + " ")
+                guest_input.send_keys(g)
+                guest_input.send_keys(Keys.ENTER)
                 time.sleep(0.5)
 
         # Add note
