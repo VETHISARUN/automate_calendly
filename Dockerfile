@@ -1,7 +1,7 @@
 # Use official Python image
 FROM python:3.11-slim
 
-# Install dependencies for Chrome & Selenium
+# Install system dependencies for Chrome & Selenium
 RUN apt-get update && apt-get install -y \
     wget \
     unzip \
@@ -25,40 +25,46 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list && \
-    apt-get update && apt-get install -y google-chrome-stable && \
+# Install Chrome (pinned version for stability)
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && \
+    apt-get install -y google-chrome-stable=114.0.5735.198-1 && \
     rm -rf /var/lib/apt/lists/*
 
-# Install ChromeDriver (match your Chrome version!)
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d '.' -f 1) && \
-    echo "Chrome version: $CHROME_VERSION" && \
-    CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION") && \
-    if [ -z "$CHROMEDRIVER_VERSION" ]; then \
-      CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE"); \
-    fi && \
-    echo "ChromeDriver version: $CHROMEDRIVER_VERSION" && \
-    wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" && \
-    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
+# Install ChromeDriver (pinned version matching Chrome)
+RUN CHROME_MAJOR_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d '.' -f 1) && \
+    echo "Detected Chrome major version: $CHROME_MAJOR_VERSION" && \
+    { \
+      CHROMEDRIVER_VERSION=$(curl -fsS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_MAJOR_VERSION" || \
+      curl -fsS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$(($CHROME_MAJOR_VERSION-1))" || \
+      echo "114.0.5735.90"); \
+    } && \
+    echo "Using ChromeDriver version: $CHROMEDRIVER_VERSION" && \
+    wget --no-verbose -O /tmp/chromedriver.zip \
+    "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" && \
+    unzip -o /tmp/chromedriver.zip -d /usr/local/bin/ && \
     rm /tmp/chromedriver.zip && \
     chmod +x /usr/local/bin/chromedriver
-
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements
+# Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install python deps
+# Install python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code
+# Copy application code
 COPY . .
 
 # Expose port
 EXPOSE 8000
+
+# Health check (optional but recommended)
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl -f http://localhost:8000/health || exit 1
 
 # Command to run the FastAPI app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
