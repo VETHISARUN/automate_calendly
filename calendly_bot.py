@@ -5,14 +5,47 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.options import Options
 import time
+import uuid
+import tempfile
+import os
 
 def book_slot(name, email, guests, note, month, day, time_str):
-    driver = webdriver.Chrome()
+    # Configure Chrome options for containerized environment
+    chrome_options = Options()
+    
+    # Essential options for containers
+    chrome_options.add_argument("--headless")  # Run in background
+    chrome_options.add_argument("--no-sandbox")  # Bypass OS security model
+    chrome_options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
+    
+    # User data directory with unique path
+    temp_dir = tempfile.mkdtemp()
+    user_data_dir = os.path.join(temp_dir, f"chrome_user_data_{uuid.uuid4().hex[:8]}")
+    chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+    
+    # Additional stability options
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--disable-features=TranslateUI")
+    chrome_options.add_argument("--disable-ipc-flooding-protection")
+    chrome_options.add_argument("--window-size=1920,1080")
+    
+    # Memory and performance optimizations
+    chrome_options.add_argument("--memory-pressure-off")
+    chrome_options.add_argument("--max_old_space_size=4096")
+    
+    # Create driver with options
+    driver = webdriver.Chrome(options=chrome_options)
     wait = WebDriverWait(driver, 10)
-    driver.get("https://calendly.com/johngvm20/30min")
-
+    
     try:
+        driver.get("https://calendly.com/johngvm20/30min")
+
         # Close cookie popup
         try:
             close_cookie_btn = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "onetrust-close-btn-handler")))
@@ -94,3 +127,10 @@ def book_slot(name, email, guests, note, month, day, time_str):
     finally:
         time.sleep(5)
         driver.quit()
+        
+        # Cleanup temporary directory
+        try:
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        except:
+            pass
